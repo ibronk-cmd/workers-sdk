@@ -81,30 +81,24 @@ export async function startDev(args: StartDevOptions) {
 			server.registerHotKeys(args);
 		}
 
-		void server
-			.listen()
-			.then(({ url }) => {
-				if (args.onReady) {
-					args.onReady(url.hostname, parseInt(url.port));
-				}
+		const { url } = await server.listen();
+		if (args.onReady) {
+			args.onReady(url.hostname, parseInt(url.port));
+		}
 
-				if (
-					(args.enableIpc || !args.onReady) &&
-					process.send &&
-					typeof vitest === "undefined"
-				) {
-					process.send(
-						JSON.stringify({
-							event: "DEV_SERVER_READY",
-							ip: url.hostname,
-							port: parseInt(url.port),
-						})
-					);
-				}
-			})
-			.catch((error) => {
-				logger.debug("Suppressed startDev listen error", error);
-			});
+		if (
+			(args.enableIpc || !args.onReady) &&
+			process.send &&
+			typeof vitest === "undefined"
+		) {
+			process.send(
+				JSON.stringify({
+					event: "DEV_SERVER_READY",
+					ip: url.hostname,
+					port: parseInt(url.port),
+				})
+			);
+		}
 
 		return server;
 	} catch (e) {

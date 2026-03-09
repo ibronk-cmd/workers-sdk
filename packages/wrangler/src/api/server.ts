@@ -406,11 +406,34 @@ export function createServer(options: CreateServerOptions): WorkerServer {
 		await Promise.all(session.devEnvs.map((devEnv) => devEnv.teardown()));
 	};
 
+	const waitForPrimaryReady = async (session: ServerSession) => {
+		return new Promise<
+			Awaited<typeof session.primaryDevEnv.proxy.ready.promise>
+		>((resolve, reject) => {
+			const onError = (error: unknown) => {
+				session.primaryDevEnv.off("error", onError);
+				reject(error);
+			};
+
+			session.primaryDevEnv.once("error", onError);
+			void session.primaryDevEnv.proxy.ready.promise.then(
+				(ready) => {
+					session.primaryDevEnv.off("error", onError);
+					resolve(ready);
+				},
+				(error: unknown) => {
+					session.primaryDevEnv.off("error", onError);
+					reject(error);
+				}
+			);
+		});
+	};
+
 	const startServerSession = async (renderHotKeys = shouldRenderHotKeys) => {
 		const session = await createSession(root, input, serverAuthHook);
 
 		try {
-			const ready = await session.primaryDevEnv.proxy.ready.promise;
+			const ready = await waitForPrimaryReady(session);
 			serverSession = session;
 			maybePrintScheduledWorkerWarning(session, ready.url);
 			registerActiveHotKeys(session, renderHotKeys);
